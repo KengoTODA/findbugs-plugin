@@ -45,33 +45,11 @@ public class UnknownNullnessDetector extends BytecodeScanningDetector {
 
             TypeQualifierAnnotation annotation = TypeQualifierApplications.getEffectiveTypeQualifierAnnotation(getXMethod(), i, nullness);
             if (annotation == null) {
-                TypeQualifierAnnotation defaultAnnotation = findDefaultAnnotation(getXMethod(), nullness);
+                TypeQualifierAnnotation defaultAnnotation = TypeQualifierApplications.getEffectiveTypeQualifierAnnotation(getXMethod(), i, nullness);
                 if (defaultAnnotation == null) {
                     bugReporter.reportBug(new BugInstance("UNKNOWN_NULLNESS_OF_PARAMETER", NORMAL_PRIORITY).addClassAndMethod(this));
                 }
             }
-        }
-    }
-
-    /**
-     * <p>To avoid a bug of FindBugs, we need reflection (!) to call private method.</p>
-     * @see https://sourceforge.net/p/findbugs/bugs/1194/
-     */
-    private TypeQualifierAnnotation findDefaultAnnotation(XMethod xMethod,
-            TypeQualifierValue<?> nullness) {
-        try {
-            Object result = GET_DEFAULT_ANNOTATION.invoke(null, xMethod, nullness, ElementType.PARAMETER);
-            if (result instanceof TypeQualifierAnnotation) {
-                return (TypeQualifierAnnotation) result;
-            } else {
-                return null;
-            }
-        } catch (SecurityException e) {
-            throw new IllegalStateException(e);
-        } catch (IllegalAccessException e) {
-            throw new IllegalStateException(e);
-        } catch (InvocationTargetException e) {
-            throw new IllegalArgumentException(e);
         }
     }
 
