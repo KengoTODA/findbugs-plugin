@@ -264,8 +264,29 @@
     </Details>
   </BugPattern>
 
+  <Detector class="jp.co.worksap.oss.findbugs.lombok.LoopedToStringDetector">
+    <Details>
+      This detector will find looped toString() methods
+      which may be introduced by @ToString annotation of Lombok.
+    </Details>
+  </Detector>
+
+  <BugPattern type="LOMBOK_CYCLIC_TO_STRING">
+    <ShortDescription>Cyclic method calling found.
+    </ShortDescription>
+    <LongDescription>
+      Cyclic method calling found: {1}
+    </LongDescription>
+    <Details>
+  <![CDATA[
+    <p>Cyclic method calling found.</p>
+  ]]>
+    </Details>
+  </BugPattern>
+
   <BugCode abbrev="SYS">SYS</BugCode>
   <BugCode abbrev="JSR305">JSR305</BugCode>
   <BugCode abbrev="JPA">JPA</BugCode>
   <BugCode addrev="JUNIT">JUnit</BugCode>
+  <BugCode addrev="LOMBOK">Lombok</BugCode>
 </MessageCollection>

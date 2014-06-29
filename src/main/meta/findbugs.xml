@@ -64,4 +64,9 @@
   <BugPattern type="UNDOCUMENTED_IGNORE" abbrev="JUNIT"
     category="BAD_PRACTICE" />
 
+  <Detector class="jp.co.worksap.oss.findbugs.lombok.LoopedToStringDetector"
+    speed="fast" hidden="false" />
+  <BugPattern type="LOMBOK_CYCLIC_TO_STRING" abbrev="LOMBOK"
+    category="CORRECTNESS" />
+
 </FindbugsPlugin>
