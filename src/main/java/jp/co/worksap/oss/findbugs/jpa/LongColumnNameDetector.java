@@ -2,6 +2,8 @@ package jp.co.worksap.oss.findbugs.jpa;
 
 import java.util.Map;
 
+import jp.co.worksap.oss.findbugs.common.VisitedFieldFinder;
+
 import org.apache.bcel.classfile.ElementValue;
 import org.apache.bcel.classfile.Method;
 import org.apache.commons.lang.IllegalClassException;

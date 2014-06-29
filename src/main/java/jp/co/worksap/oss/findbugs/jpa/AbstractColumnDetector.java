@@ -6,6 +6,8 @@ import java.util.Map;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nonnull;
 
+import jp.co.worksap.oss.findbugs.common.VisitedFieldFinder;
+
 import org.apache.bcel.classfile.AnnotationEntry;
 import org.apache.bcel.classfile.ElementValue;
 import org.apache.bcel.classfile.Field;

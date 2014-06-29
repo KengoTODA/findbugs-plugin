@@ -1,4 +1,4 @@
-package jp.co.worksap.oss.findbugs.jpa;
+package jp.co.worksap.oss.findbugs.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
@@ -19,7 +19,7 @@ import edu.umd.cs.findbugs.bcel.AnnotationDetector;
  *
  * @author Kengo TODA
  */
-final class VisitedFieldFinder extends EmptyVisitor {
+public final class VisitedFieldFinder extends EmptyVisitor {
     private final String targetMethodName;
     private final String targetMethodDescriptor;
 
@@ -54,7 +54,7 @@ final class VisitedFieldFinder extends EmptyVisitor {
 
     @Nullable
     @CheckReturnValue
-    static String findFieldWhichisVisitedInVisitingMethod(AnnotationDetector detector) {
+    public static String findFieldWhichisVisitedInVisitingMethod(AnnotationDetector detector) {
         byte[] classByteCode = detector.getClassContext().getJavaClass().getBytes();
         ClassReader reader = new ClassReader(classByteCode);
 
