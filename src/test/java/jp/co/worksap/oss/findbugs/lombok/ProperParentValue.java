@@ -7,4 +7,5 @@ import lombok.ToString;
 @Data
 class ProperParentValue {
     private ProperChildValue child;
+    private ClassWithoutToStringMethod anotherField;
 }

@@ -39,6 +39,22 @@ public class LoopedToStringDetectorTest {
         DetectorAssert.assertNoBugsReported(ProperChildValue.class, detector, bugReporter);
     }
 
+    @Test(expected = UnsupportedOperationException.class)
+    public void testLoopedParentWithChildren() throws Exception {
+        BugReporter bugReporter = DetectorAssert.bugReporterForTesting();
+        LoopedToStringDetector detector = new LoopedToStringDetector(bugReporter);
+
+        DetectorAssert.assertBugReported(LoopedParentValueWithChildren.class, detector, bugReporter);
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testProperParentWithChildren() throws Exception {
+        BugReporter bugReporter = DetectorAssert.bugReporterForTesting();
+        LoopedToStringDetector detector = new LoopedToStringDetector(bugReporter);
+
+        DetectorAssert.assertNoBugsReported(ProperParentValueWithChildren.class, detector, bugReporter);
+    }
+
     @Test
     public void testTriangleReference() throws Exception {
         BugReporter bugReporter = DetectorAssert.bugReporterForTesting();
