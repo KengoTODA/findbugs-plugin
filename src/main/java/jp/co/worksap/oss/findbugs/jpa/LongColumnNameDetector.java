@@ -50,7 +50,10 @@ public class LongColumnNameDetector extends AnnotationDetector {
             columnName = getFieldName();
         } else if (visitingMethod()) {
             Method targetMethod = getMethod();
-            columnName = VisitedFieldFinder.findFieldWhichisVisitedInVisitingMethod(this);
+            columnName = VisitedFieldFinder.findFieldWhichisVisitedInVisitingMethod(
+            		this.getClassDescriptor().getClassName(),
+            		this.getMethod().getName(),
+            		this.getMethod().getSignature());
             if (columnName == null) {
                 throw new IllegalClassException(String.format(
                         "Method which is annotated with @Column should access to field, but %s#%s does not access.",

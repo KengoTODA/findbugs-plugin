@@ -83,7 +83,10 @@ abstract class AbstractColumnDetector extends AnnotationDetector {
 
     @Nonnull
     private Field findFieldInVisitingMethod() {
-        String fieldName = VisitedFieldFinder.findFieldWhichisVisitedInVisitingMethod(this);
+        String fieldName = VisitedFieldFinder.findFieldWhichisVisitedInVisitingMethod(
+        		this.getClassDescriptor().getClassName(),
+        		this.getMethod().getName(),
+        		this.getMethod().getSignature());
         Field visitingField = null;
         for (Field field : getThisClass().getFields()) {
             if (Objects.equal(field.getName(), fieldName)) {
