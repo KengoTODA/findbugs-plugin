@@ -22,7 +22,7 @@ public class LoopedToStringDetector extends BytecodeScanningDetector {
         if (method.isPublic() && "toString".equals(method.getName()) && "()Ljava/lang/String;".equals(method.getSignature())) {
             // this is #toString method, dig this to research reference
 
-            Optional<String> errorReport = new CyclicMethodReferenceFinder().find(getClassContext().getJavaClass(), getMethodDescriptor());
+            Optional<String> errorReport = new CyclicMethodReferenceFinder().find(getClassContext().getJavaClass().getClassName(), getMethodDescriptor());
             if (errorReport.isPresent()) {
                 bugReporter.reportBug(new BugInstance(this, "LOMBOK_CYCLIC_TO_STRING", HIGH_PRIORITY)
                     .addClassAndMethod(this)

@@ -2,23 +2,25 @@ package jp.co.worksap.oss.findbugs.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import java.io.IOException;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+
 import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
-import org.apache.bcel.Repository;
-import org.apache.bcel.classfile.JavaClass;
-import org.apache.bcel.classfile.Method;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.MethodVisitor;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.EmptyVisitor;
 
 import com.google.common.base.Optional;
-import com.google.common.collect.HashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.Sets;
 
-import edu.umd.cs.findbugs.bcel.BCELUtil;
 import edu.umd.cs.findbugs.classfile.MethodDescriptor;
+import edu.umd.cs.findbugs.internalAnnotations.DottedClassName;
+import edu.umd.cs.findbugs.internalAnnotations.SlashedClassName;
 
 /**
  * <p>Simple ClassVisitor implementation to find visited methods in the specified method.</p>
@@ -29,8 +31,7 @@ import edu.umd.cs.findbugs.classfile.MethodDescriptor;
 public final class VisitedMethodFinder extends EmptyVisitor {
     private final String targetMethodName;
     private final String targetMethodDescriptor;
-
-    private Multimap<JavaClass, MethodDescriptor> visitedMethods = HashMultimap.create();
+    private final Set<MethodDescriptor> visitedMethods = Sets.newHashSet();
 
     /**
      * Type of reference in the top of operand stack.
@@ -43,7 +44,7 @@ public final class VisitedMethodFinder extends EmptyVisitor {
     }
 
     @Nonnull
-    private Multimap<JavaClass, MethodDescriptor> getVisitedMethods() {
+    private Set<MethodDescriptor> getVisitedMethods() {
         return visitedMethods;
     }
 
@@ -69,52 +70,72 @@ public final class VisitedMethodFinder extends EmptyVisitor {
         super.visitMethodInsn(opcode, owner, name, desc);
 
         try {
-            JavaClass calledClass = Repository.lookupClass(owner);
-            Method method = findFrom(calledClass, name, desc).get();
-
-            if (calledClass.getClassName().equals("java.lang.StringBuilder") && name.equals("append") && desc.equals("(Ljava/lang/Object;)Ljava/lang/StringBuilder;")) {
+            if (owner.equals("java/lang/StringBuilder") && name.equals("append") && desc.equals("(Ljava/lang/Object;)Ljava/lang/StringBuilder;")) {
                 // consider that stringBuilder.append(obj) as stringBuilder.append(obj.toString())
 
-                JavaClass appendedClass = Repository.lookupClass(lastPushedType.getInternalName());
-                Optional<Method> implecitlyCalledToString = findFrom(appendedClass, "toString", "()Ljava/lang/String;");
+                Optional<MethodDescriptor> implecitlyCalledToString = findFrom(lastPushedType.getInternalName(), "toString", "()Ljava/lang/String;", false);
                 if (implecitlyCalledToString.isPresent()) {
-                    visitedMethods.put(appendedClass, BCELUtil.getMethodDescriptor(calledClass, implecitlyCalledToString.get()));
+                    visitedMethods.add(implecitlyCalledToString.get());
                 } else {
                     // FIXME support Collection<T> or other class which has no toString method
-                    throw new UnsupportedOperationException("this findbugs plugin has not support collection yet");
+                    throw new UnsupportedOperationException("this findbugs plugin has not support collection yet:" + lastPushedType.getInternalName());
                 }
             }
 
-            visitedMethods.put(calledClass, BCELUtil.getMethodDescriptor(calledClass, method));
+            visitedMethods.add(new MethodDescriptor(owner, name, desc, opcode == Opcodes.INVOKESTATIC));
             lastPushedType = Type.getReturnType(desc);
-        } catch (ClassNotFoundException e) {
+        } catch (IOException e) {
             throw new IllegalStateException(e);
         }
     }
 
     @ParametersAreNonnullByDefault
     // TODO how to handle default interface in Java 8?
-    private Optional<Method> findFrom(JavaClass clazz, String methodName, String desc) throws ClassNotFoundException {
-        do {
-            for (Method method : clazz.getMethods()) {
-                if (methodName.equals(method.getName()) && desc.equals(method.getSignature())) {
-                    return Optional.of(method);
+    private Optional<MethodDescriptor> findFrom(@SlashedClassName final String className, final String methodName, final String methodDesc, final boolean isStatic) throws IOException {
+        if (className == null) {
+            return Optional.absent();
+        }
+
+        final AtomicReference<MethodDescriptor> foundMethod = new AtomicReference<MethodDescriptor>();
+        final AtomicReference<String> foundSuperClass = new AtomicReference<String>();
+        ClassReader reader = new ClassReader(className);
+        EmptyVisitor visitor = new EmptyVisitor() {
+            @Override
+            public void visit(int version, int access, String name, String signature, String superName, String[] interfaces) {
+                super.visit(version, access, name, signature, superName, interfaces);
+                if ((Opcodes.ACC_INTERFACE & access) != 0) {
+                    // this is interface, no need to parse super class
+                    // TODO add test case for annotation, enum and more
+                } else {
+                    foundSuperClass.set(superName);
                 }
             }
-        } while (!clazz.isInterface() && (clazz = clazz.getSuperClass()) != null);
 
-        return Optional.absent();
+            @Override
+            public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+                if (name.equals(methodName) && desc.equals(methodDesc)) {
+                    foundMethod.set(new MethodDescriptor(className, name, desc, isStatic));
+                }
+                return super.visitMethod(access, name, desc, signature, exceptions);
+            }
+        };
+
+        reader.accept(visitor, 0);
+        return Optional.fromNullable(foundMethod.get()).or(findFrom(foundSuperClass.get(), methodName, methodDesc, isStatic));
     }
 
     @Nonnull
     @ParametersAreNonnullByDefault
-    public static Multimap<JavaClass, MethodDescriptor> listVisitedMethodFrom(JavaClass javaClass, MethodDescriptor methodDescriptor) {
+    public static Set<MethodDescriptor> listVisitedMethodFrom(@DottedClassName String className, MethodDescriptor methodDescriptor) {
         // TODO optimization: memorize it to reduce bytecode parsing
-        byte[] classByteCode = javaClass.getBytes();
-        ClassReader reader = new ClassReader(classByteCode);
-        VisitedMethodFinder visitedMethodFinder = new VisitedMethodFinder(methodDescriptor.getName(), methodDescriptor.getSignature());
+        try {
+            ClassReader reader = new ClassReader(className);
+            VisitedMethodFinder visitedMethodFinder = new VisitedMethodFinder(methodDescriptor.getName(), methodDescriptor.getSignature());
 
-        reader.accept(visitedMethodFinder, 0);
-        return visitedMethodFinder.getVisitedMethods();
+            reader.accept(visitedMethodFinder, 0);
+            return visitedMethodFinder.getVisitedMethods();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 }
