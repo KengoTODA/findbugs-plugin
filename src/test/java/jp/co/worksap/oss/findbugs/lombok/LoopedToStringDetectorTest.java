@@ -39,7 +39,7 @@ public class LoopedToStringDetectorTest {
         DetectorAssert.assertNoBugsReported(ProperChildValue.class, detector, bugReporter);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testLoopedParentWithChildren() throws Exception {
         BugReporter bugReporter = DetectorAssert.bugReporterForTesting();
         LoopedToStringDetector detector = new LoopedToStringDetector(bugReporter);
@@ -47,7 +47,7 @@ public class LoopedToStringDetectorTest {
         DetectorAssert.assertBugReported(LoopedParentValueWithChildren.class, detector, bugReporter);
     }
 
-    @Test(expected = UnsupportedOperationException.class)
+    @Test
     public void testProperParentWithChildren() throws Exception {
         BugReporter bugReporter = DetectorAssert.bugReporterForTesting();
         LoopedToStringDetector detector = new LoopedToStringDetector(bugReporter);

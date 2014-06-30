@@ -3,6 +3,7 @@ package jp.co.worksap.oss.findbugs.common;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -10,12 +11,17 @@ import javax.annotation.Nonnull;
 import javax.annotation.ParametersAreNonnullByDefault;
 
 import org.objectweb.asm.ClassReader;
+import org.objectweb.asm.FieldVisitor;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.commons.EmptyVisitor;
+import org.objectweb.asm.signature.SignatureReader;
+import org.objectweb.asm.signature.SignatureVisitor;
+import org.objectweb.asm.signature.SignatureWriter;
 
 import com.google.common.base.Optional;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 
 import edu.umd.cs.findbugs.classfile.MethodDescriptor;
@@ -37,6 +43,7 @@ public final class VisitedMethodFinder extends EmptyVisitor {
      * Type of reference in the top of operand stack.
      */
     private Type lastPushedType;
+    private String lastPushedSignature;
 
     public VisitedMethodFinder(@Nonnull String targetMethodName, @Nonnull String targetMethodDescriptor) {
         this.targetMethodName = checkNotNull(targetMethodName);
@@ -63,6 +70,29 @@ public final class VisitedMethodFinder extends EmptyVisitor {
     public void visitFieldInsn(int opcode, String owner, String name, String desc) {
         super.visitFieldInsn(opcode, owner, name, desc);
         lastPushedType = Type.getType(desc);
+        lastPushedSignature = findFieldSignature(owner, name, desc);
+    }
+
+    private String findFieldSignature(String owner, final String fieldName, final String fieldDesc) {
+        try {
+            final AtomicReference<String> foundSignature = new AtomicReference<String>();
+
+            ClassReader reader = new ClassReader(owner);
+            EmptyVisitor visitor = new EmptyVisitor() {
+                @Override
+                public FieldVisitor visitField(int access, String name, String descriptor, String signature, Object obj) {// TODO check what obj means
+                    if (fieldName.equals(name) && fieldDesc.equals(descriptor)) {
+                        foundSignature.set(signature);
+                    }
+                    return this;
+                };
+            };
+            reader.accept(visitor, 0);
+
+            return foundSignature.get();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Override
@@ -77,16 +107,60 @@ public final class VisitedMethodFinder extends EmptyVisitor {
                 if (implecitlyCalledToString.isPresent()) {
                     visitedMethods.add(implecitlyCalledToString.get());
                 } else {
-                    // FIXME support Collection<T> or other class which has no toString method
-                    throw new UnsupportedOperationException("this findbugs plugin has not support collection yet:" + lastPushedType.getInternalName());
+                    // calling interface like Collection<T>, Map<K,V> or Closeable
+                    // guess that we will call T.toString(), K.toString() and V.toString()
+                    for (Type type : findAllGenerics(lastPushedSignature)) {
+                        implecitlyCalledToString = findFrom(type.getInternalName(), "toString", "()Ljava/lang/String;", false);
+                        if (implecitlyCalledToString.isPresent()) {
+                            visitedMethods.add(implecitlyCalledToString.get());
+                        }
+                    }
                 }
             }
 
             visitedMethods.add(new MethodDescriptor(owner, name, desc, opcode == Opcodes.INVOKESTATIC));
             lastPushedType = Type.getReturnType(desc);
+            lastPushedSignature = findMethodSignature(owner, name, desc);
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    private String findMethodSignature(String owner, final String methodName, final String methodDesc) {
+        try {
+            final AtomicReference<String> foundSignature = new AtomicReference<String>();
+
+            ClassReader reader = new ClassReader(owner);
+            EmptyVisitor visitor = new EmptyVisitor() {
+                @Override
+                public MethodVisitor visitMethod(int access, String name, String descriptor, String signature, String[] exceptions) {
+                    if (methodName.equals(name) && methodDesc.equals(descriptor)) {
+                        foundSignature.set(signature);
+                    }
+                    return this;
+                };
+            };
+            reader.accept(visitor, 0);
+
+            return foundSignature.get();
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private List<Type> findAllGenerics(String descriptor) {
+        final List<Type> generics = Lists.newArrayList();
+        SignatureReader reader = new SignatureReader(descriptor);
+        SignatureVisitor visitor = new SignatureWriter() {
+            @Override
+            public void visitClassType(String name) {
+                super.visitClassType(name);
+                generics.add(Type.getObjectType(name));
+            }
+        };
+        reader.accept(visitor);
+
+        return generics;
     }
 
     @ParametersAreNonnullByDefault
